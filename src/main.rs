@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     io::Error,
+    os::linux::fs::MetadataExt,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -10,6 +11,9 @@ use crypto::md5::Md5;
 
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
+
+#[derive(Debug)]
+struct Cli {}
 
 fn main() {}
 
@@ -42,7 +46,6 @@ enum FileType {
     FILE,
     DIRECTORY,
     SYMBOL,
-    HARDLINK,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,7 +53,7 @@ struct Node {
     path: PathBuf,
     file_type: Option<FileType>,
     hash: Option<String>,
-    inode: Option<u32>,
+    inode: Option<u64>,
     children: Option<Rc<RefCell<Vec<Node>>>>,
 }
 
@@ -73,8 +76,36 @@ impl Node {
         Ok(ans)
     }
 
-    fn build_children_node(root: &mut Node) {
-        let root_path = root.path.as_path();
-        // root_path.metadata()
+    fn build_children_node(path: &Path) -> Result<Node, Error> {
+        let mut root = Node::new(path);
+
+        let meta = path.metadata()?;
+        root.inode = Option::Some(meta.st_ino());
+
+
+        if path.is_dir() {
+            root.file_type = Option::Some(FileType::DIRECTORY);
+        }
+
+        return Ok(root);
     }
+}
+
+// use linux stat to query inode info
+// linux cp -l 
+#[test]
+fn list_file_type() {
+    use std::os::linux::fs::MetadataExt;
+    use std::path::Path;
+
+    let src_file = Path::new("/root/rscp");
+    let hard_file = Path::new("/root/test.hard");
+    let link_file = Path::new("/root/test.link");
+
+    let src_file_meta = src_file.metadata().unwrap();
+
+    println!("{}", src_file_meta.st_ino());
+    println!("{:?}", src_file_meta.file_type());
+    println!("{:?}", src_file_meta.is_dir());
+    println!("{:?}", hard_file.metadata().unwrap().file_type());
 }
