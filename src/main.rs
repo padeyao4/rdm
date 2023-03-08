@@ -1,111 +1,110 @@
 use std::{
     cell::RefCell,
     io::Error,
-    os::linux::fs::MetadataExt,
     path::{Path, PathBuf},
     rc::Rc,
 };
 
+use clap::Parser;
 use crypto::digest::Digest;
 use crypto::md5::Md5;
 
 use serde::{Deserialize, Serialize};
-use walkdir::WalkDir;
 
-#[derive(Debug)]
-struct Cli {}
+#[derive(Debug, Parser)]
+struct Cli {
+    // 文件路径
+    path: Option<PathBuf>,
+    // 打印json
+    #[arg(short, long)]
+    json: bool,
+}
 
-fn main() {}
-
-#[test]
-fn test() {
-    for entry in walkdir::WalkDir::new("C:/Users/11818/Desktop/AnimeGANv3-Python")
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        println!("{:?}", entry.file_name());
+fn main() {
+    let cli = Cli::parse();
+    let path = match cli.path {
+        Some(p) => p,
+        None => {
+            println!("{}", "--help to show help message");
+            return;
+        }
+    };
+    if path.starts_with("..") || path.to_str().eq(&Option::Some(".")) {
+        println!("directry not be . or ..");
+        return;
     }
-}
-
-#[test]
-fn md5_test() {
-    let mut hasher = Md5::new();
-    hasher.input_str("hello");
-    let ans = hasher.result_str();
-    println!("{ans}");
-}
-
-#[test]
-fn test_inde() {
-    let path = Path::new(r"C:\Users\11818\Desktop\AnimeGANv3-Python\job.yml");
-    println!("{:?}", path.metadata());
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-enum FileType {
-    FILE,
-    DIRECTORY,
-    SYMBOL,
+    let root = Node::scan(&path);
+    if cli.json {
+        let json = serde_json::to_string_pretty(&root);
+        match json {
+            Ok(s) => println!("{}", s),
+            Err(e) => println!("{}", e),
+        }
+    } else {
+        println!("{}", root.hash.unwrap());
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Node {
-    path: PathBuf,
-    file_type: Option<FileType>,
+    name: String,
     hash: Option<String>,
-    inode: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     children: Option<Rc<RefCell<Vec<Node>>>>,
 }
 
 impl Node {
-    pub fn new(path: &Path) -> Node {
-        Node {
-            path: path.to_path_buf(),
-            file_type: Option::None,
+    pub fn scan(path: &Path) -> Node {
+        let name = match path.file_name() {
+            Some(s) => Some(s.to_owned()),
+            None => None,
+        };
+
+        let mut root = Node {
+            name: name.unwrap().to_str().to_owned().unwrap().to_owned(),
             hash: Option::None,
-            inode: Option::None,
-            children: Option::Some(Rc::new(RefCell::new(Vec::new()))),
+            children: Option::None,
+        };
+
+        if path.is_file() {
+            let md5 = Node::sum_hash(path);
+            root.hash = Option::Some(md5.unwrap());
+            return root;
+        } else {
+            let mut children = Vec::new();
+            let mut hash_str = String::new();
+            for entry in walkdir::WalkDir::new(path)
+                .max_depth(1)
+                .min_depth(1)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(|f| f.ok())
+            {
+                let child = Node::scan(entry.path());
+                let child_hash = match &child.hash {
+                    Some(s) => s,
+                    None => "",
+                };
+                hash_str = hash_str + &child_hash;
+                children.push(child);
+            }
+            root.hash = Option::Some(Node::sum_hash_str(&hash_str));
+            root.children = Option::Some(Rc::new(RefCell::new(children)));
+            return root;
         }
     }
 
-    fn sum_file_hash(path: &Path) -> Result<String, Error> {
+    fn sum_hash_str(s: &str) -> String {
+        let mut hasher = Md5::new();
+        hasher.input_str(s);
+        hasher.result_str()
+    }
+
+    fn sum_hash(path: &Path) -> Result<String, Error> {
         let file = std::fs::read(path)?;
         let mut hasher = Md5::new();
         hasher.input(&file);
         let ans = hasher.result_str();
         Ok(ans)
     }
-
-    fn build_children_node(path: &Path) -> Result<Node, Error> {
-        let mut root = Node::new(path);
-
-        let meta = path.metadata()?;
-        root.inode = Option::Some(meta.st_ino());
-
-
-        if path.is_dir() {
-            root.file_type = Option::Some(FileType::DIRECTORY);
-        }
-
-        return Ok(root);
-    }
-}
-
-// use linux stat to query inode info
-// linux cp -l 
-#[test]
-fn list_file_type() {
-    use std::os::linux::fs::MetadataExt;
-    use std::path::Path;
-
-    let src_file = Path::new("/root/rscp");
-    let hard_file = Path::new("/root/test.hard");
-    let link_file = Path::new("/root/test.link");
-
-    let src_file_meta = src_file.metadata().unwrap();
-
-    println!("{}", src_file_meta.st_ino());
-    println!("{:?}", src_file_meta.file_type());
-    println!("{:?}", src_file_meta.is_dir());
-    println!("{:?}", hard_file.metadata().unwrap().file_type());
 }
