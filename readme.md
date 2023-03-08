@@ -1,61 +1,80 @@
 # rdm - Recursive Directory MD5
 
-rdm is a command-line tool written in Rust that can calculate the md5 value of a directory recursively. It uses the rust-crypto crate to implement the md5 algorithm and the walkdir crate to traverse the directory tree. It also uses the clap crate to parse command-line arguments and the serde crate to serialize and deserialize data.
+rdm is a command-line tool written in Rust that can recursively calculate the md5 value of a directory.
 
 ## Installation
 
-To install rdm, you need to have Rust 1.56 or higher and Cargo installed on your system. Then you can run the following command:
+You can download precompiled binaries from [here](https://github.com/padeyao4/rdm/releases), or use cargo to install:
 
-cargo install rdm
-This will download and compile rdm and place it in your Cargo bin directory.
+```bash
+cargo install --git https://github.com/padeyao4/rdm.git
+```
 
 ## Usage
 
-To use rdm, you need to provide a directory path as an argument. For example:
+```bash
+rdm [OPTIONS] <DIR>
+```
 
-rdm C:\Users\example\Documents
-This will calculate the md5 value of the Documents directory and print it to the standard output in a human-readable format. You can also use relative paths or multiple paths as arguments.
+where `<DIR>` is the directory to calculate the md5 value.
 
-By default, rdm will ignore subdirectories and hidden files when calculating the md5 value. You can change this behavior by using some optional flags:
+The optional arguments are:
 
--r or --recursive: Include subdirectories in the calculation.
--a or --all: Include hidden files in the calculation.
--s or --sort: Sort files by name before calculating the md5 value.
--j or --json: Output the md5 information in JSON format.
--h or --help: Print a help message and exit.
--v or --version: Print version information and exit.
-For example:
+- `-j`, `--json`: Print json formatted output, including the md5 values of each file and subdirectory.
+- `-a`, `--all`: Include hidden files and directories in calculation. By default, they are ignored.
+- `-h`, `--help`: Print help information.
 
-rdm -r -a -j C:\Users\example\Documents
-This will calculate the md5 value of the Documents directory recursively, including hidden files, and output it in JSON format.
+## Example
 
-## Output
+Assume there is a directory structure like this:
 
-The output of rdm depends on whether you use the -j or --json flag. If you do not use this flag, rdm will output a simple text message that contains two parts: The directory path that was given as an argument and its corresponding md5 value. For example:
+```text
+test/
+├── a.txt
+├── b.txt
+└── sub/
+    ├── c.txt
+    └── d.txt
+```
 
-C:\Users\example\Documents: d41d8cd98f00b204e9800998ecf8427e
-If multiple paths are given as arguments, rdm will output one line for each path. For example:
+Running rdm test will produce output like this:
 
-C:\Users\example\Documents: d41d8cd98f00b204e9800998ecf8427e
-C:\Users\example\Downloads: c4ca4238a0b923820dcc509a6f75849b
-If you use the -j or --json flag, rdm will output a JSON object that contains two fields: path and md5. The path field is a string that represents the directory path that was given as an argument. The md5 field is a string that represents the hex digest of the md5 value of that directory. For example:
+```text
+0a7c8f6b9e2d3a0b9c7f8d6e4f3a2c9d
+```
 
+Running rdm -j test will produce output like this:
+
+```json
 {
-"path": "C:\\Users\\example\\Documents",
-"md5": "d41d8cd98f00b204e9800998ecf8427e"
+  "name": "test",
+  "hash": "0a7c8f6b9e2d3a0b9c7f8d6e4f3a2c9d",
+  "children": [
+    {
+      "name": "a.txt",
+      "hash": "4124bc0a9335c27f086f24ba207a4912"
+    },
+    {
+      "name": "b.txt",
+      "hash": "47bce5c74f589f4867dbd57e9ca9f808"
+    },
+    {
+      "name": "sub",
+      "hash": "1fb8beedfcabfdffddbbdcdeecdfcd03",
+      "children": [
+        {
+          "name": "c.txt",
+          "hash": "1fb8beedfcabfdffddbbdcde74f589f4"
+        },
+        {
+          "name": "d.txt",
+          "hash": "1fb8beedfcabfdffddbbdcd47bce5c74"
+        }
+      ]
+    }
+  ]
 }
-If multiple paths are given as arguments, rdm will output an array of JSON objects, one for each path. For example:
-
-[
-{
-"path": "C:\\Users\\example\\Documents",
-"md5": "d41d8cd98f00b204e9800998ecf8427e"
-},
-{
-"path": "C:\\Users\\example\\Downloads",
-"md5": "c4ca4238a0b923820dcc509a6f75849b"
-}
-]
+```
 
 ## License
 

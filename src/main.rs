@@ -13,11 +13,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Parser)]
 struct Cli {
-    // 文件路径
+    /// directory path
     path: Option<PathBuf>,
-    // 打印json
+
+    /// print json
     #[arg(short, long)]
     json: bool,
+
+    /// Include hidden files in the calculation
+    #[arg(short, long)]
+    all: bool,
 }
 
 fn main() {
@@ -33,7 +38,7 @@ fn main() {
         println!("directry not be . or ..");
         return;
     }
-    let root = Node::scan(&path);
+    let root = Node::scan(&path, cli.all);
     if cli.json {
         let json = serde_json::to_string_pretty(&root);
         match json {
@@ -54,14 +59,9 @@ struct Node {
 }
 
 impl Node {
-    pub fn scan(path: &Path) -> Node {
-        let name = match path.file_name() {
-            Some(s) => Some(s.to_owned()),
-            None => None,
-        };
-
+    pub fn scan(path: &Path, all: bool) -> Node {
         let mut root = Node {
-            name: name.unwrap().to_str().to_owned().unwrap().to_owned(),
+            name: path.file_name().unwrap().to_string_lossy().into_owned(),
             hash: Option::None,
             children: Option::None,
         };
@@ -80,7 +80,13 @@ impl Node {
                 .into_iter()
                 .filter_map(|f| f.ok())
             {
-                let child = Node::scan(entry.path());
+                let file_name = entry.file_name().to_string_lossy();
+
+                if file_name.starts_with(".") && !all {
+                    continue;
+                }
+
+                let child = Node::scan(entry.path(), all);
                 let child_hash = match &child.hash {
                     Some(s) => s,
                     None => "",
