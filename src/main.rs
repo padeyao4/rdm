@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Parser)]
 struct Cli {
     /// directory path
-    path: Option<PathBuf>,
+    path: PathBuf,
 
     /// print json
     #[arg(short, long)]
@@ -24,13 +24,7 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
-    let path = match cli.path {
-        Some(p) => p,
-        None => {
-            println!("{}", "--help to show help message");
-            return;
-        }
-    };
+    let path = cli.path;
     if path.starts_with("..") || path.to_str().eq(&Option::Some(".")) {
         println!("directry not be . or ..");
         return;
