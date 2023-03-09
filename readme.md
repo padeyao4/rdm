@@ -37,7 +37,7 @@ test/
     └── d.txt
 ```
 
-Running rdm test will produce output like this:
+Running `rdm test` will produce output like this:
 
 ```text
 0a7c8f6b9e2d3a0b9c7f8d6e4f3a2c9d
