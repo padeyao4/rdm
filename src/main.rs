@@ -1,14 +1,11 @@
 use std::{
     cell::RefCell,
-    io::Error,
     path::{Path, PathBuf},
     rc::Rc,
 };
 
 use clap::Parser;
-use crypto::digest::Digest;
-use crypto::md5::Md5;
-
+use md5::Digest;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Parser)]
@@ -67,8 +64,8 @@ impl Node {
         };
 
         if path.is_file() {
-            let md5 = Node::sum_hash(path);
-            root.hash = Option::Some(md5.unwrap());
+            let md5 = Node::sum_md5(path);
+            root.hash = Option::Some(md5);
             return root;
         } else {
             let mut children = Vec::new();
@@ -94,23 +91,24 @@ impl Node {
                 hash_str = hash_str + &child_hash;
                 children.push(child);
             }
-            root.hash = Option::Some(Node::sum_hash_str(&hash_str));
+            root.hash = Option::Some(Node::sum_md5_str(&hash_str));
             root.children = Option::Some(Rc::new(RefCell::new(children)));
             return root;
         }
     }
 
-    fn sum_hash_str(s: &str) -> String {
-        let mut hasher = Md5::new();
-        hasher.input_str(s);
-        hasher.result_str()
+    fn sum_md5_str(s: &str) -> String {
+        let mut hasher = md5::Md5::new();
+        hasher.update(s);
+        let hash = hasher.finalize();
+        format!("{:x}", hash)
     }
 
-    fn sum_hash(path: &Path) -> Result<String, Error> {
-        let file = std::fs::read(path)?;
-        let mut hasher = Md5::new();
-        hasher.input(&file);
-        let ans = hasher.result_str();
-        Ok(ans)
+    fn sum_md5(path: &Path) -> String {
+        let content = std::fs::read(path).unwrap();
+        let mut hasher = md5::Md5::new();
+        hasher.update(content);
+        let hash = hasher.finalize();
+        format!("{:x}", hash)
     }
 }
